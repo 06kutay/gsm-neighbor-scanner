@@ -11,7 +11,7 @@ Sistemi yeni bir makinede çalıştıracak kişinin yapması gereken adımlar:
 ### 🍌 ADIM 1: Kodu Bilgisayara İndirin
 Terminali açın ve repoyu bilgisayarınıza klonlayın:
 ```bash
-git clone https://github.com/<kullanici-adi>/gsm-neighbor-scanner.git
+git clone https://github.com/06kutay/gsm-neighbor-scanner.git
 ```
 
 ### 🍌 ADIM 2: Proje Klasörüne Girin

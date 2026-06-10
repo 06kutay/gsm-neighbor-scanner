@@ -15,7 +15,7 @@
 ## Quick Start
 
 ```bash
-git clone https://github.com/<your-username>/gsm-neighbor-scanner.git
+git clone https://github.com/06kutay/gsm-neighbor-scanner.git
 cd gsm-neighbor-scanner
 chmod +x install.sh && ./install.sh
 
