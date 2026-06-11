@@ -34,6 +34,15 @@ def print_rich_table(data: dict[str, Any]) -> None:
     lac = serving.get("lac", "N/A") if serving else "N/A"
     cid = serving.get("cid", "N/A") if serving else "N/A"
     pwr = serving.get("avg_signal_power_dbm", "N/A") if serving else "N/A"
+    
+    cell_barred = serving.get("cell_barred", "N/A") if serving else "N/A"
+    reestablishment = serving.get("reestablishment", "N/A") if serving else "N/A"
+    emergency_call = serving.get("emergency_call", "N/A") if serving else "N/A"
+    rxlev_val = serving.get("rxlev_access_min_dbm", "N/A") if serving else "N/A"
+    rxlev_access_min_dbm = f"{rxlev_val} dBm" if rxlev_val != "N/A" else "N/A"
+    txpwr_val = serving.get("ms_txpwr_max_cch", "N/A") if serving else "N/A"
+    ms_txpwr_max_cch = f"{txpwr_val} dBm" if txpwr_val != "N/A" else "N/A"
+    gprs_supported = serving.get("gprs_supported", "N/A") if serving else "N/A"
 
     # Format metadata section
     meta_text = (
@@ -44,7 +53,9 @@ def print_rich_table(data: dict[str, Any]) -> None:
         f"[bold cyan]Serving ARFCN:[/bold cyan] {data.get('serving_arfcn')}  |  "
         f"[bold cyan]Serving Freq:[/bold cyan] {data.get('frequency_mhz'):.1f} MHz  |  "
         f"[bold cyan]Gain:[/bold cyan] {data.get('gain_db')} dB\n"
-        f"[bold cyan]Serving Cell Identity:[/bold cyan] MCC={mcc}, MNC={mnc}, LAC={lac}, CID={cid} (Avg RX Power: {pwr} dBm)"
+        f"[bold cyan]Serving Cell Identity:[/bold cyan] MCC={mcc}, MNC={mnc}, LAC={lac}, CID={cid} (Avg RX Power: {pwr} dBm)\n"
+        f"[bold cyan]Cell Access Flags:[/bold cyan] Cell Barred: {cell_barred}  |  Re-establishment: {reestablishment}  |  Emergency Call: {emergency_call}\n"
+        f"[bold cyan]Cell Parameters:[/bold cyan] Min RX Level: {rxlev_access_min_dbm}  |  Max Tx Power: {ms_txpwr_max_cch}  |  GPRS/EDGE: {gprs_supported}"
     )
 
     console.print()
@@ -163,6 +174,12 @@ def save_csv(data: dict[str, Any], output_dir: pathlib.Path, timestamp: str) -> 
         "mnc",
         "lac",
         "cid",
+        "cell_barred",
+        "reestablishment",
+        "emergency_call",
+        "rxlev_access_min_dbm",
+        "ms_txpwr_max_cch",
+        "gprs_supported",
         "neighbour_arfcn",
         "neighbour_freq_mhz",
     ]
@@ -172,6 +189,12 @@ def save_csv(data: dict[str, Any], output_dir: pathlib.Path, timestamp: str) -> 
     mnc = serving.get("mnc", "")
     lac = serving.get("lac", "")
     cid = serving.get("cid", "")
+    cell_barred = serving.get("cell_barred", "")
+    reestablishment = serving.get("reestablishment", "")
+    emergency_call = serving.get("emergency_call", "")
+    rxlev_access_min_dbm = serving.get("rxlev_access_min_dbm", "")
+    ms_txpwr_max_cch = serving.get("ms_txpwr_max_cch", "")
+    gprs_supported = serving.get("gprs_supported", "")
 
     neighbours = data.get("neighbours", [])
 
@@ -192,6 +215,12 @@ def save_csv(data: dict[str, Any], output_dir: pathlib.Path, timestamp: str) -> 
                         mnc,
                         lac,
                         cid,
+                        cell_barred,
+                        reestablishment,
+                        emergency_call,
+                        rxlev_access_min_dbm,
+                        ms_txpwr_max_cch,
+                        gprs_supported,
                         "",
                         "",
                     ]
@@ -208,6 +237,12 @@ def save_csv(data: dict[str, Any], output_dir: pathlib.Path, timestamp: str) -> 
                             mnc,
                             lac,
                             cid,
+                            cell_barred,
+                            reestablishment,
+                            emergency_call,
+                            rxlev_access_min_dbm,
+                            ms_txpwr_max_cch,
+                            gprs_supported,
                             n.get("arfcn"),
                             n.get("frequency_mhz"),
                         ]

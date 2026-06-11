@@ -205,6 +205,118 @@ def extract_serving_cell_info(packet: Any) -> dict[str, Any]:
             if cid is not None:
                 info["cid"] = cid
 
+            # 5. Extract Cell Barred Access
+            cell_barr = None
+            for attr in ["cell_barr_access", "cell_barr", "gsm_a_rr_cell_barr_access"]:
+                if hasattr(layer, attr):
+                    cell_barr = clean_int(getattr(layer, attr))
+                    break
+            if cell_barr is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if k.endswith(".cell_barr_access") or k.endswith(".cell_barr"):
+                            cell_barr = clean_int(v.get_default_value())
+                            break
+                except Exception:
+                    pass
+            if cell_barr is not None:
+                info["cell_barred"] = "Barred" if cell_barr == 1 else "Not Barred"
+
+            # 6. Extract Call Re-establishment
+            re = None
+            for attr in ["re", "reestablishment", "gsm_a_rr_re"]:
+                if hasattr(layer, attr):
+                    re = clean_int(getattr(layer, attr))
+                    break
+            if re is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if k.endswith(".re") or k.endswith(".reestablishment"):
+                            re = clean_int(v.get_default_value())
+                            break
+                except Exception:
+                    pass
+            if re is not None:
+                info["reestablishment"] = "Allowed" if re == 0 else "Not Allowed"
+
+            # 7. Extract Emergency Call Allowed
+            acc = None
+            for attr in ["acc", "gsm_a_rr_acc", "access_control_class"]:
+                if hasattr(layer, attr):
+                    acc = getattr(layer, attr)
+                    break
+            if acc is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if k.endswith(".acc") or k.endswith(".access_control_class"):
+                            acc = v.get_default_value()
+                            break
+                except Exception:
+                    pass
+            if acc is not None:
+                try:
+                    val_str = str(acc).strip()
+                    if val_str.lower().startswith("0x"):
+                        acc_val = int(val_str, 16)
+                    else:
+                        acc_val = int(val_str)
+                    # Bit 10 represents ACC Class 10 (Emergency calls barred if 1, allowed if 0)
+                    is_barred = (acc_val & 0x0400) != 0
+                    info["emergency_call"] = "Not Allowed" if is_barred else "Allowed"
+                except Exception:
+                    pass
+
+            # 8. Extract RXLEV-ACCESS-MIN
+            rxlev = None
+            for attr in ["rxlev_access_min", "rxlev", "gsm_a_rr_rxlev_access_min"]:
+                if hasattr(layer, attr):
+                    rxlev = clean_int(getattr(layer, attr))
+                    break
+            if rxlev is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if k.endswith(".rxlev_access_min") or k.endswith(".rxlev"):
+                            rxlev = clean_int(v.get_default_value())
+                            break
+                except Exception:
+                    pass
+            if rxlev is not None:
+                info["rxlev_access_min_dbm"] = -110 + rxlev
+
+            # 9. Extract MS-TXPWR-MAX-CCH
+            txpwr = None
+            for attr in ["ms_txpwr_max_cch", "txpwr", "gsm_a_rr_ms_txpwr_max_cch"]:
+                if hasattr(layer, attr):
+                    txpwr = clean_int(getattr(layer, attr))
+                    break
+            if txpwr is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if k.endswith(".ms_txpwr_max_cch") or k.endswith(".txpwr"):
+                            txpwr = clean_int(v.get_default_value())
+                            break
+                except Exception:
+                    pass
+            if txpwr is not None:
+                info["ms_txpwr_max_cch"] = txpwr
+
+            # 10. Extract GPRS Indicator
+            gprs = None
+            for attr in ["gprs_indicator", "gprs_support", "gsm_a_rr_gprs_indicator"]:
+                if hasattr(layer, attr):
+                    gprs = clean_int(getattr(layer, attr))
+                    break
+            if gprs is None:
+                try:
+                    for k, v in layer._all_fields.items():
+                        if "gprs_indicator" in k or "gprs_support" in k or k.endswith(".gprs"):
+                            gprs = clean_int(v.get_default_value())
+                            break
+                except Exception:
+                    pass
+            if gprs is not None:
+                info["gprs_supported"] = "Supported" if gprs == 1 else "Not Supported"
+
     return info
 
 
@@ -419,6 +531,12 @@ def parse_pcap(
             "mnc": serving_info.get("mnc", ""),
             "lac": serving_info.get("lac"),
             "cid": serving_info.get("cid"),
+            "cell_barred": serving_info.get("cell_barred"),
+            "reestablishment": serving_info.get("reestablishment"),
+            "emergency_call": serving_info.get("emergency_call"),
+            "rxlev_access_min_dbm": serving_info.get("rxlev_access_min_dbm"),
+            "ms_txpwr_max_cch": serving_info.get("ms_txpwr_max_cch"),
+            "gprs_supported": serving_info.get("gprs_supported"),
         }
         if signal_powers:
             avg_power = sum(signal_powers) / len(signal_powers)
