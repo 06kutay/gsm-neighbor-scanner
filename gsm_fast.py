@@ -310,6 +310,7 @@ def main() -> None:
     scanned_arfcs = set()
     to_scan = list(sorted(arfcn_list))
     sweep_results = []
+    retry_map = {}  # Track retries for transient SDR initialization errors
 
     while to_scan:
         current_arfcn = to_scan.pop(0)
@@ -434,6 +435,13 @@ def main() -> None:
         except Exception as e:
             if args.sweep:
                 console.print(f"    [red]✗[/red] Scanner Error: {e}")
+                # Retry mechanism for sweep to handle transient USB/SDR driver locks
+                retries = retry_map.get(current_arfcn, 0)
+                if retries < 2:
+                    retry_map[current_arfcn] = retries + 1
+                    console.print(f"    [yellow]↺[/yellow] Scheduling retry ({retries + 1}/2) for ARFCN {current_arfcn}...")
+                    scanned_arfcs.discard(current_arfcn)
+                    to_scan.append(current_arfcn)
             else:
                 console.print(f"[bold red]Scanner Error on ARFCN {current_arfcn}:[/bold red] {e}")
             scan_failed = True
