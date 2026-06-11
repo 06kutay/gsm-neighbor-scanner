@@ -67,65 +67,88 @@ When `--sweep` is passed, the tool maps the local network topology dynamically:
 
 ## Output Examples
 
-### Terminal Table Output
-Regardless of the file formats saved, `gsm-neighbor-scanner` always renders a clean table to stdout:
+### Terminal Table Output (Single Scan)
+Regardless of the file formats saved, `gsm-neighbor-scanner` renders a beautiful, structured table report to stdout:
 
 ```text
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│                        GSM NEIGHBOR SCAN REPORT                                        │
-│ SDR Device: b210  |  Band: 900 MHz  |  Duration: 15s  |  Time (UTC): 2026-06-10T12:00:00Z  │
-│ Serving ARFCN: 60  |  Serving Freq: 947.0 MHz  |  Gain: 40.0 dB                        │
-│ Serving Cell Identity: MCC=286, MNC=01, LAC=12345, CID=6789 (Avg RX Power: -68.4 dBm)  │
-└────────────────────────────────────────────────────────────────────────────────────────┘
-
-Detected Neighbor Cells (2 found)
-┌───────┬─────────────────┬──────────────────────────────────────────┐
-│ ARFCN │ Frequency (MHz) │ Notes                                    │
-├───────┼─────────────────┼──────────────────────────────────────────┤
-│    55 │           946.0 │ Neighbor cell carrier (C1/C0 Allocation) │
-│    62 │           947.4 │ Neighbor cell carrier (C1/C0 Allocation) │
-└───────┴─────────────────┴──────────────────────────────────────────┘
+╭────────────────────────── GSM NEIGHBOR SCAN REPORT ──────────────────────────╮
+│ 📶 SDR Device: b210  |  📡 Band: 900 MHz  |  ⏱️ Duration: 4s  |  🕒 Time     │
+│ (UTC): 2026-06-11T11:44:03Z                                                  │
+│ 🎯 Serving ARFCN: 118  |  🎛️ Serving Freq: 958.6 MHz  |  📈 Gain: 60.0 dB    │
+│ ──────────────────────────────────────────────────────────────────────       │
+│ 🆔 Serving Cell ID: MCC=286, MNC=02, LAC=50602, CID=16527 (Avg Power: -36.7  │
+│ dBm)                                                                         │
+│ 🔓 Cell Access: Cell Barred: Not Barred  |  Re-establishment: Allowed  |     │
+│ Emergency Call: Allowed                                                      │
+│ ⚙️ Parameters: Min RX Level: -110 dBm  |  Max Tx Power: 5 dBm  |  GPRS/EDGE: │
+│ Supported                                                                    │
+╰──────────────────────────────────────────────────────────────────────────────╯
+                       Detected Neighbor Cells (9 found)                        
+┏━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ Type ┃   Channel ID ┃ Frequency (MHz) ┃ Notes / Details                      ┃
+┡━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ GSM  │   ARFCN: 119 │           958.8 │ Neighbor cell carrier (C1/C0         │
+│      │              │                 │ Allocation)                          │
+├──────┼──────────────┼─────────────────┼──────────────────────────────────────┤
+│ LTE  │    EARFCN: 1 │             N/A │ E-UTRAN Neighbor Carrier Frequency   │
+└──────┴──────────────┴─────────────────┴──────────────────────────────────────┘
 ```
 
-### JSON Log Example (`logs/scan_20260610_120000.json`)
+### Sweep Summary Output (`--sweep`)
+When running a recursive topological sweep, a consolidated 7-column report is generated at the end:
+
+```text
+                            GSM SWEEP SUMMARY REPORT                            
+┏━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━┓
+┃          ┃          ┃           ┃          ┃ Cell      ┃          ┃          ┃
+┃ Carrier  ┃ Cell ID  ┃ Power     ┃ Features ┃ Config    ┃          ┃ Neighbo… ┃
+┃ (ARFCN/… ┃ (MCC-MN… ┃ (Avg)     ┃ (Access… ┃ (MinRx/T… ┃ Status   ┃ (GSM/LT… ┃
+┡━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━┩
+│ 118      │ 286-02 / │ -36.7 dBm │ Allowed  │ Min:-110… │ Resolved │ 119,     │
+│ (958.6   │ 50602 /  │           │ / GPRS   │ Tx:5dBm | │          │ 120,     │
+│ MHz)     │ 16527    │           │          │ Emerg:Yes │          │ L:1,     │
+│          │          │           │          │ Reest:Yes │          │ L:3725   │
+└──────────┴──────────┴───────────┴──────────┴───────────┴──────────┴──────────┘
+```
+
+### JSON Log Example (`logs/scan_arfcn118_20260611_114358.json`)
 ```json
 {
-  "scan_time": "2026-06-10T12:00:00Z",
+  "scan_time": "2026-06-11T11:44:03Z",
   "sdr": "b210",
-  "serving_arfcn": 60,
+  "serving_arfcn": 118,
   "band": 900,
-  "frequency_mhz": 947.0,
-  "gain_db": 40.0,
-  "duration_sec": 15,
+  "frequency_mhz": 958.6,
+  "gain_db": 60.0,
+  "duration_sec": 4,
   "serving_cell": {
-    "arfcn": 60,
+    "arfcn": 118,
     "mcc": "286",
-    "mnc": "01",
-    "lac": 12345,
-    "cid": 6789,
-    "avg_signal_power_dbm": -68.4
+    "mnc": "02",
+    "lac": 50602,
+    "cid": 16527,
+    "avg_signal_power_dbm": -36.7,
+    "cell_barred": "Not Barred",
+    "gprs_supported": "Supported",
+    "rxlev_access_min_dbm": -110,
+    "ms_txpwr_max_cch": 5,
+    "emergency_call": "Allowed",
+    "reestablishment": "Allowed"
   },
   "neighbours": [
-    {"arfcn": 55, "frequency_mhz": 946.0},
-    {"arfcn": 62, "frequency_mhz": 947.4}
+    {"arfcn": 119, "frequency_mhz": 958.8}
   ],
-  "neighbour_count": 2,
-  "raw_pcap": "logs/scan_20260610_120000.pcap"
+  "lte_neighbours": [1, 276, 3725],
+  "umts_neighbours": [],
+  "raw_pcap": "logs/scan_arfcn118_20260611_114358.pcap"
 }
-```
-
-### CSV Log Example (`logs/scan_20260610_120000.csv`)
-```csv
-scan_time,sdr,serving_arfcn,band,mcc,mnc,lac,cid,neighbour_arfcn,neighbour_freq_mhz
-2026-06-10T12:00:00Z,b210,60,900,286,01,12345,6789,55,946.0
-2026-06-10T12:00:00Z,b210,60,900,286,01,12345,6789,62,947.4
 ```
 
 ## Troubleshooting
 
 ### `grgsm_livemon_headless` not found
 This indicates that `gr-gsm` was not installed properly or is not in your shell's `PATH`.
-* **Fix:** Re-run `./setup.sh` and watch for compilation warnings. On Fedora, make sure the compilation did not fail during `cmake` or `make`. Confirm you can launch it manually: `grgsm_livemon_headless --help`.
+* **Fix:** Re-run `./install.sh` and watch for compilation warnings. On Fedora, make sure the compilation did not fail during `cmake` or `make`. Confirm you can launch it manually: `grgsm_livemon_headless --help`.
 
 ### No packets captured / 0 neighbours found
 The scanner captured 0 packets on port 4729. This typically happens when:
@@ -163,7 +186,3 @@ If the tool crashes with a raw socket permission or interface access error:
   ```bash
   newgrp wireshark
   ```
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
