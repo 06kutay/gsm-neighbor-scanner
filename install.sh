@@ -148,15 +148,21 @@ python3 -m venv .venv
 .venv/bin/pip install --upgrade pip
 .venv/bin/pip install -r requirements.txt
 
-# 8. Create wrapper script
-echo "Creating wrapper script 'gsm-scan'..."
+# 8. Create wrapper scripts
+echo "Creating wrapper scripts..."
 cat > gsm-scan << 'EOF'
 #!/usr/bin/env bash
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec "$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/scan_gsm.py" "$@"
 EOF
-
 chmod +x gsm-scan
+
+cat > gsm-scan-fast << 'EOF'
+#!/usr/bin/env bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/gsm_fast.py" "$@"
+EOF
+chmod +x gsm-scan-fast
 
 # 9. Create logs/ directory
 mkdir -p logs
