@@ -34,6 +34,72 @@ logging.basicConfig(
 logger = logging.getLogger("gsm_fast_scanner")
 
 
+def print_sweep_summary(results: list) -> None:
+    """
+    Renders a unified summary table for all scanned ARFCNs in a sweep.
+    """
+    from rich.table import Table
+    console = Console()
+    
+    table = Table(
+        title="[bold cyan]GSM SWEEP SUMMARY REPORT[/bold cyan]",
+        show_header=True,
+        header_style="bold magenta",
+        expand=True
+    )
+    table.add_column("ARFCN", style="cyan", justify="right", width=6)
+    table.add_column("Frequency", style="green", width=12)
+    table.add_column("MCC-MNC", style="yellow", width=10)
+    table.add_column("LAC", style="blue", width=8)
+    table.add_column("CID", style="blue", width=8)
+    table.add_column("Power (Avg)", style="magenta", width=12)
+    table.add_column("Status", style="bold", width=12)
+    table.add_column("Discovered Neighbors (GSM / LTE / UMTS)", style="white")
+    
+    for res in results:
+        arfcn = res.get("serving_arfcn", "N/A")
+        freq = f"{res.get('frequency_mhz', 0.0):.1f} MHz"
+        serving = res.get("serving_cell")
+        
+        if serving:
+            mcc = serving.get("mcc", "N/A")
+            mnc = serving.get("mnc", "N/A")
+            mcc_mnc = f"{mcc}-{mnc}" if mcc != "N/A" else "N/A"
+            lac = str(serving.get("lac") or "N/A")
+            cid = str(serving.get("cid") or "N/A")
+            power = f"{serving.get('avg_signal_power_dbm', 0.0):.1f} dBm" if serving.get('avg_signal_power_dbm') is not None else "N/A"
+            status = "[green]Resolved[/green]"
+        else:
+            mcc_mnc = "N/A"
+            lac = "N/A"
+            cid = "N/A"
+            power = "N/A"
+            status = "[yellow]Unresolved[/yellow]"
+            
+        # Compile neighbor lists
+        gsm_neighs = [str(n.get("arfcn")) for n in res.get("neighbours", []) if n.get("arfcn") is not None]
+        lte_neighs = [f"L:{e}" for e in res.get("lte_neighbours", [])]
+        umts_neighs = [f"U:{u}" for u in res.get("umts_neighbours", [])]
+        
+        all_neighs = gsm_neighs + lte_neighs + umts_neighs
+        neighbors_str = ", ".join(all_neighs) if all_neighs else "None"
+        
+        table.add_row(
+            str(arfcn),
+            freq,
+            mcc_mnc,
+            lac,
+            cid,
+            power,
+            status,
+            neighbors_str
+        )
+        
+    console.print("\n")
+    console.print(table)
+    console.print("\n")
+
+
 def main() -> None:
     """
     Main function to execute the CLI scan.
@@ -119,6 +185,9 @@ def main() -> None:
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
         logger.debug("Verbose logging enabled.")
+    elif args.sweep:
+        # Suppress info logging during sweeps to keep terminal clean
+        logging.getLogger().setLevel(logging.WARNING)
 
     console = Console()
 
@@ -241,6 +310,7 @@ def main() -> None:
     # Run neighbor cell sweep for each target ARFCN
     scanned_arfcs = set()
     to_scan = list(sorted(arfcn_list))
+    sweep_results = []
 
     while to_scan:
         current_arfcn = to_scan.pop(0)
@@ -248,17 +318,17 @@ def main() -> None:
             continue
         scanned_arfcs.add(current_arfcn)
 
-        logger.info(f"==================================================")
-        logger.info(f"Starting FAST neighbor scan for ARFCN {current_arfcn}")
-        if args.sweep:
-            logger.info(f"Sweep Queue Status: {len(to_scan)} remaining in queue")
-        logger.info(f"==================================================")
-        
         # 1. Map SDR device and convert ARFCN to frequency
         try:
             sdr_args = map_sdr_device(args.sdr)
             freq_hz = arfcn_to_freq_hz(current_arfcn, args.band)
-            logger.info(f"Target frequency: {freq_hz / 1e6:.3f} MHz (ARFCN {current_arfcn}, Band {args.band})")
+            if args.sweep:
+                console.print(f"[bold cyan]>>> Scanning ARFCN {current_arfcn}[/bold cyan] ({freq_hz/1e6:.1f} MHz) | Queue: {len(to_scan)} remaining")
+            else:
+                logger.info(f"==================================================")
+                logger.info(f"Starting FAST neighbor scan for ARFCN {current_arfcn}")
+                logger.info(f"==================================================")
+                logger.info(f"Target frequency: {freq_hz / 1e6:.3f} MHz (ARFCN {current_arfcn}, Band {args.band})")
         except ValueError as e:
             console.print(f"[bold red]Configuration Error for ARFCN {current_arfcn}:[/bold red] {e}")
             continue
@@ -341,7 +411,10 @@ def main() -> None:
                             has_neighbors = scan_results.get("neighbour_count", 0) > 0
                             
                             if has_serving and has_neighbors:
-                                logger.info(f"[Optimizer] Early termination triggered at {elapsed:.1f}s: all parameters resolved!")
+                                if args.sweep:
+                                    console.print(f"    [green]✓[/green] Resolved in {elapsed:.1f}s")
+                                else:
+                                    logger.info(f"[Optimizer] Early termination triggered at {elapsed:.1f}s: all parameters resolved!")
                                 early_terminated = True
                                 elapsed_sec = int(elapsed)
                                 break
@@ -351,13 +424,19 @@ def main() -> None:
                 time.sleep(1.0)
 
             if not early_terminated:
-                logger.info("Maximum duration elapsed. Shutting down capture...")
+                                if args.sweep:
+                                    console.print(f"    [yellow]⚠[/yellow] Timeout reached ({args.duration}s)")
+                                else:
+                                    logger.info("Maximum duration elapsed. Shutting down capture...")
 
         except KeyboardInterrupt:
             console.print("\n[bold yellow]Scan interrupted by user.[/bold yellow]")
             interrupted = True
         except Exception as e:
-            console.print(f"[bold red]Scanner Error on ARFCN {current_arfcn}:[/bold red] {e}")
+            if args.sweep:
+                console.print(f"    [red]✗[/red] Scanner Error: {e}")
+            else:
+                console.print(f"[bold red]Scanner Error on ARFCN {current_arfcn}:[/bold red] {e}")
             scan_failed = True
         finally:
             runner.stop()
@@ -399,16 +478,17 @@ def main() -> None:
         except Exception as e:
             console.print(f"[bold red]Logging Error:[/bold red] Failed to write output logs: {e}")
 
-        # 8. Print table output
-        print_rich_table(scan_results)
-
-        for file_path in saved_files:
-            logger.info(f"Log written to: {file_path}")
-
-        if scan_results["neighbour_count"] == 0:
-            console.print(
-                "[yellow]No SI2 messages captured. Try increasing --gain or adjusting antenna.[/yellow]\n"
-            )
+        # 8. Print table output / Save for summary
+        if args.sweep:
+            sweep_results.append(scan_results)
+        else:
+            print_rich_table(scan_results)
+            for file_path in saved_files:
+                logger.info(f"Log written to: {file_path}")
+            if scan_results["neighbour_count"] == 0:
+                console.print(
+                    "[yellow]No SI2 messages captured. Try increasing --gain or adjusting antenna.[/yellow]\n"
+                )
 
         # 9. Queue neighbor ARFCNs if sweep option is active
         if args.sweep:
@@ -417,6 +497,10 @@ def main() -> None:
                 if n_arfcn is not None and n_arfcn not in scanned_arfcs and n_arfcn not in to_scan:
                     logger.info(f"[Sweep] Queueing newly discovered neighbor ARFCN {n_arfcn} for scanning.")
                     to_scan.append(n_arfcn)
+
+    # 10. Print final sweep summary report
+    if args.sweep and sweep_results:
+        print_sweep_summary(sweep_results)
 
 
 if __name__ == "__main__":

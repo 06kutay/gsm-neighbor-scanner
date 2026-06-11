@@ -417,6 +417,12 @@ def parse_pcap(
         logger.warning(f"PCAP file {pcap_path} is missing or empty.")
         return result
 
+    import pyshark
+    try:
+        pyshark.capture.capture.Capture.__del__ = lambda self: None
+    except Exception:
+        pass
+
     cap = None
     neighbours_set: set[int] = set()
     lte_set: set[int] = set()
@@ -426,15 +432,13 @@ def parse_pcap(
 
     # Reset asyncio event loop for this thread to prevent pyshark conflicts
     import asyncio
-    created_loop = False
     try:
-        loop = asyncio.get_event_loop()
+        old_loop = asyncio.get_event_loop()
     except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        created_loop = True
-    except Exception as e:
-        logger.debug(f"Failed to setup event loop: {e}")
+        old_loop = None
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
     try:
         # Load PCAP file, filtering at the tshark reader level for gsmtap
@@ -524,12 +528,22 @@ def parse_pcap(
             except Exception:
                 pass
             try:
-                del cap
+                cap.close = lambda: None
             except Exception:
                 pass
-        if 'created_loop' in locals() and created_loop:
             try:
-                loop.close()
+                import gc
+                del cap
+                gc.collect()
+            except Exception:
+                pass
+        try:
+            loop.close()
+        except Exception:
+            pass
+        if old_loop is not None:
+            try:
+                asyncio.set_event_loop(old_loop)
             except Exception:
                 pass
 
