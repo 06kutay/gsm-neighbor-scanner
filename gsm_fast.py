@@ -107,6 +107,11 @@ def main() -> None:
         action="store_true",
         help="Disable dynamic early termination and capture for the full duration.",
     )
+    parser.add_argument(
+        "--sweep",
+        action="store_true",
+        help="Recursively scan all detected neighbor cells in a sweep.",
+    )
 
     args = parser.parse_args()
 
@@ -234,9 +239,19 @@ def main() -> None:
     loopback_iface = None
 
     # Run neighbor cell sweep for each target ARFCN
-    for current_arfcn in sorted(arfcn_list):
+    scanned_arfcs = set()
+    to_scan = list(sorted(arfcn_list))
+
+    while to_scan:
+        current_arfcn = to_scan.pop(0)
+        if current_arfcn in scanned_arfcs:
+            continue
+        scanned_arfcs.add(current_arfcn)
+
         logger.info(f"==================================================")
         logger.info(f"Starting FAST neighbor scan for ARFCN {current_arfcn}")
+        if args.sweep:
+            logger.info(f"Sweep Queue Status: {len(to_scan)} remaining in queue")
         logger.info(f"==================================================")
         
         # 1. Map SDR device and convert ARFCN to frequency
@@ -345,11 +360,11 @@ def main() -> None:
             interrupted = True
         finally:
             runner.stop()
-            # If we early-terminated or got interrupted, we don't need the grace period
-            if not interrupted and not early_terminated:
-                logger.info("Waiting 2-second grace period for packet flush...")
-                time.sleep(2.0)
             capturer.stop()
+            # Cooldown to allow SDR hardware to release USB locks before the next scan
+            if not interrupted and to_scan:
+                logger.info("Waiting 2-second SDR cooldown/reset period...")
+                time.sleep(2.0)
 
         if interrupted:
             break
@@ -390,6 +405,14 @@ def main() -> None:
             console.print(
                 "[yellow]No SI2 messages captured. Try increasing --gain or adjusting antenna.[/yellow]\n"
             )
+
+        # 9. Queue neighbor ARFCNs if sweep option is active
+        if args.sweep:
+            for neighbour in scan_results.get("neighbours", []):
+                n_arfcn = neighbour.get("arfcn")
+                if n_arfcn is not None and n_arfcn not in scanned_arfcs and n_arfcn not in to_scan:
+                    logger.info(f"[Sweep] Queueing newly discovered neighbor ARFCN {n_arfcn} for scanning.")
+                    to_scan.append(n_arfcn)
 
 
 if __name__ == "__main__":
