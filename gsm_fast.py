@@ -45,16 +45,15 @@ def print_sweep_summary(results: list) -> None:
         title="[bold cyan]GSM SWEEP SUMMARY REPORT[/bold cyan]",
         show_header=True,
         header_style="bold magenta",
-        expand=True
     )
-    table.add_column("ARFCN", style="cyan", justify="right", width=6)
-    table.add_column("Frequency", style="green", width=12)
-    table.add_column("MCC-MNC", style="yellow", width=10)
-    table.add_column("LAC", style="blue", width=8)
-    table.add_column("CID", style="blue", width=8)
-    table.add_column("Power (Avg)", style="magenta", width=12)
-    table.add_column("Status", style="bold", width=12)
-    table.add_column("Discovered Neighbors (GSM / LTE / UMTS)", style="white")
+    table.add_column("ARFCN", style="cyan", justify="right")
+    table.add_column("Frequency", style="green")
+    table.add_column("MCC-MNC", style="yellow")
+    table.add_column("LAC", style="blue")
+    table.add_column("CID", style="blue")
+    table.add_column("Power (Avg)", style="magenta")
+    table.add_column("Status", style="bold")
+    table.add_column("Neighbors (GSM/LTE/UMTS)", style="white")
     
     for res in results:
         arfcn = res.get("serving_arfcn", "N/A")
