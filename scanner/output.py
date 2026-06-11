@@ -44,18 +44,32 @@ def print_rich_table(data: dict[str, Any]) -> None:
     ms_txpwr_max_cch = f"{txpwr_val} dBm" if txpwr_val != "N/A" else "N/A"
     gprs_supported = serving.get("gprs_supported", "N/A") if serving else "N/A"
 
-    # Format metadata section
+    # Colorize serving cell values for maximum clarity
+    barred_color = "red" if cell_barred == "Barred" else "green"
+    cell_barred_formatted = f"[bold {barred_color}]{cell_barred}[/bold {barred_color}]"
+    
+    gprs_color = "green" if gprs_supported == "Supported" else "yellow"
+    gprs_formatted = f"[bold {gprs_color}]{gprs_supported}[/bold {gprs_color}]"
+    
+    emerg_color = "green" if emergency_call == "Allowed" else "red"
+    emerg_formatted = f"[bold {emerg_color}]{emergency_call}[/bold {emerg_color}]"
+
+    reest_color = "green" if reestablishment == "Allowed" else "red"
+    reest_formatted = f"[bold {reest_color}]{reestablishment}[/bold {reest_color}]"
+
+    # Format metadata section with clean emojis and structure
     meta_text = (
-        f"[bold cyan]SDR Device:[/bold cyan] {data.get('sdr')}  |  "
-        f"[bold cyan]Band:[/bold cyan] {data.get('band')} MHz  |  "
-        f"[bold cyan]Duration:[/bold cyan] {data.get('duration_sec')}s  |  "
-        f"[bold cyan]Time (UTC):[/bold cyan] {data.get('scan_time')}\n"
-        f"[bold cyan]Serving ARFCN:[/bold cyan] {data.get('serving_arfcn')}  |  "
-        f"[bold cyan]Serving Freq:[/bold cyan] {data.get('frequency_mhz'):.1f} MHz  |  "
-        f"[bold cyan]Gain:[/bold cyan] {data.get('gain_db')} dB\n"
-        f"[bold cyan]Serving Cell Identity:[/bold cyan] MCC={mcc}, MNC={mnc}, LAC={lac}, CID={cid} (Avg RX Power: {pwr} dBm)\n"
-        f"[bold cyan]Cell Access Flags:[/bold cyan] Cell Barred: {cell_barred}  |  Re-establishment: {reestablishment}  |  Emergency Call: {emergency_call}\n"
-        f"[bold cyan]Cell Parameters:[/bold cyan] Min RX Level: {rxlev_access_min_dbm}  |  Max Tx Power: {ms_txpwr_max_cch}  |  GPRS/EDGE: {gprs_supported}"
+        f"[bold cyan]📶 SDR Device:[/bold cyan] {data.get('sdr')}  |  "
+        f"[bold cyan]📡 Band:[/bold cyan] {data.get('band')} MHz  |  "
+        f"[bold cyan]⏱️ Duration:[/bold cyan] {data.get('duration_sec')}s  |  "
+        f"[bold cyan]🕒 Time (UTC):[/bold cyan] {data.get('scan_time')}\n"
+        f"[bold cyan]🎯 Serving ARFCN:[/bold cyan] {data.get('serving_arfcn')}  |  "
+        f"[bold cyan]🎛️ Serving Freq:[/bold cyan] {data.get('frequency_mhz'):.1f} MHz  |  "
+        f"[bold cyan]📈 Gain:[/bold cyan] {data.get('gain_db')} dB\n"
+        f"{'─' * 70}\n"
+        f"[bold yellow]🆔 Serving Cell ID:[/bold yellow] MCC={mcc}, MNC={mnc}, LAC={lac}, CID={cid} (Avg Power: {pwr} dBm)\n"
+        f"[bold yellow]🔓 Cell Access:[/bold yellow] Cell Barred: {cell_barred_formatted}  |  Re-establishment: {reest_formatted}  |  Emergency Call: {emerg_formatted}\n"
+        f"[bold yellow]⚙️ Parameters:[/bold yellow] Min RX Level: {rxlev_access_min_dbm}  |  Max Tx Power: {ms_txpwr_max_cch}  |  GPRS/EDGE: {gprs_formatted}"
     )
 
     console.print()
@@ -68,62 +82,67 @@ def print_rich_table(data: dict[str, Any]) -> None:
         )
     )
 
-    # Initialize neighbors table
+    # Initialize unified neighbors table
+    neighbours = data.get("neighbours", [])
+    lte_neighbours = data.get("lte_neighbours", [])
+    umts_neighbours = data.get("umts_neighbours", [])
+    total_neighs = len(neighbours) + len(lte_neighbours) + len(umts_neighbours)
+
     table = Table(
-        title=f"Detected Neighbor Cells ([bold green]{data.get('neighbour_count')}[/bold green] found)",
+        title=f"Detected Neighbor Cells ([bold green]{total_neighs}[/bold green] found)",
         header_style="bold cyan",
         show_lines=True,
     )
-    table.add_column("ARFCN", justify="right", style="cyan")
+    table.add_column("Type", justify="center", style="bold")
+    table.add_column("Channel ID", justify="right", style="cyan")
     table.add_column("Frequency (MHz)", justify="right", style="magenta")
-    table.add_column("Notes", justify="left")
+    table.add_column("Notes / Details", justify="left")
 
-    neighbours = data.get("neighbours", [])
-    if not neighbours:
-        table.add_row("-", "-", "[yellow]No neighbor cells found in capture.[/yellow]")
-    else:
-        for idx, n in enumerate(neighbours):
-            arf = n.get("arfcn")
-            freq = n.get("frequency_mhz")
-            freq_str = f"{freq:.1f}" if freq is not None else "N/A"
-            row_style = "white" if idx % 2 == 0 else "grey70"
-            notes = "Neighbor cell carrier (C1/C0 Allocation)"
-            table.add_row(str(arf), freq_str, notes, style=row_style)
+    idx = 0
+    # Add GSM Neighbors
+    for n in neighbours:
+        arf = n.get("arfcn")
+        freq = n.get("frequency_mhz")
+        freq_str = f"{freq:.1f}" if freq is not None else "N/A"
+        row_style = "white" if idx % 2 == 0 else "grey70"
+        table.add_row(
+            "[bold cyan]GSM[/bold cyan]",
+            f"ARFCN: {arf}",
+            freq_str,
+            "Neighbor cell carrier (C1/C0 Allocation)",
+            style=row_style
+        )
+        idx += 1
+
+    # Add LTE Neighbors
+    for earfcn in lte_neighbours:
+        row_style = "white" if idx % 2 == 0 else "grey70"
+        table.add_row(
+            "[bold magenta]LTE[/bold magenta]",
+            f"EARFCN: {earfcn}",
+            "N/A",
+            "E-UTRAN Neighbor Carrier Frequency",
+            style=row_style
+        )
+        idx += 1
+
+    # Add UMTS Neighbors
+    for uarfcn in umts_neighbours:
+        row_style = "white" if idx % 2 == 0 else "grey70"
+        table.add_row(
+            "[bold yellow]UMTS[/bold yellow]",
+            f"UARFCN: {uarfcn}",
+            "N/A",
+            "UTRAN FDD Neighbor Carrier Frequency",
+            style=row_style
+        )
+        idx += 1
+
+    if total_neighs == 0:
+        table.add_row("-", "-", "-", "[yellow]No neighbor cells found in capture.[/yellow]")
 
     console.print(table)
     console.print()
-
-    # Initialize LTE neighbors table
-    lte_neighbours = data.get("lte_neighbours", [])
-    if lte_neighbours:
-        lte_table = Table(
-            title=f"Detected LTE Neighbor Cells ([bold green]{data.get('lte_neighbour_count', 0)}[/bold green] found)",
-            header_style="bold cyan",
-            show_lines=True,
-        )
-        lte_table.add_column("EARFCN", justify="right", style="cyan")
-        lte_table.add_column("Notes", justify="left")
-        for idx, earfcn in enumerate(lte_neighbours):
-            row_style = "white" if idx % 2 == 0 else "grey70"
-            lte_table.add_row(str(earfcn), "E-UTRAN Carrier Frequency", style=row_style)
-        console.print(lte_table)
-        console.print()
-
-    # Initialize UMTS neighbors table
-    umts_neighbours = data.get("umts_neighbours", [])
-    if umts_neighbours:
-        umts_table = Table(
-            title=f"Detected UMTS Neighbor Cells ([bold green]{data.get('umts_neighbour_count', 0)}[/bold green] found)",
-            header_style="bold cyan",
-            show_lines=True,
-        )
-        umts_table.add_column("UARFCN", justify="right", style="cyan")
-        umts_table.add_column("Notes", justify="left")
-        for idx, uarfcn in enumerate(umts_neighbours):
-            row_style = "white" if idx % 2 == 0 else "grey70"
-            umts_table.add_row(str(uarfcn), "UTRAN FDD Carrier Frequency", style=row_style)
-        console.print(umts_table)
-        console.print()
 
 
 def save_json(data: dict[str, Any], output_dir: pathlib.Path, timestamp: str) -> pathlib.Path:
