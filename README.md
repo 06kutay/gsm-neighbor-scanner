@@ -20,8 +20,27 @@ cd gsm-neighbor-scanner
 chmod +x install.sh && ./install.sh
 
 # After install completes:
+# 1. Run standard scan:
 ./gsm-scan --arfcn 60 --band 900 --sdr b210 --gain 40 --duration 25
+
+# 2. Run optimized fast scan with dynamic early termination:
+./gsm-scan-fast --arfcn 118 --band 900 --sdr b210 --gain 60 --duration 25
+
+# 3. Run recursive topological sweep to scan all discovered neighbor cells:
+./gsm-scan-fast --arfcn 118 --band 900 --sdr b210 --gain 60 --duration 25 --sweep
 ```
+
+## Fast Scanner & Recursive Sweep
+
+### Dynamic Early Termination
+The fast scanner (`gsm-scan-fast`) polls the capture output every second. As soon as the serving cell identity and the neighbor cell allocation are fully resolved, it terminates the SDR and packet capture processes immediately. On typical cells, this reduces scan times from 25s to **3 - 4 seconds**.
+
+### Recursive Sweep (`--sweep`)
+When `--sweep` is passed, the tool maps the local network topology dynamically:
+1. It scans the starting ARFCN.
+2. It parses the neighbor cell allocation (SI2 list).
+3. It pushes all newly discovered unique neighbor ARFCNs into a dynamic queue.
+4. It sequentially scans each neighbor, implementing a 2-second SDR cooldown between targets to allow USB interfaces to re-settle.
 
 ## CLI Reference
 
