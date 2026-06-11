@@ -46,18 +46,19 @@ def print_sweep_summary(results: list) -> None:
         show_header=True,
         header_style="bold magenta",
     )
-    table.add_column("ARFCN", style="cyan", justify="right")
-    table.add_column("Frequency", style="green")
-    table.add_column("MCC-MNC", style="yellow")
-    table.add_column("LAC", style="blue")
-    table.add_column("CID", style="blue")
+    table.add_column("Carrier (ARFCN/Freq)", style="cyan")
+    table.add_column("Cell ID (MCC-MNC/LAC/CID)", style="yellow")
     table.add_column("Power (Avg)", style="magenta")
+    table.add_column("Features (Access/GPRS)", style="bold green")
+    table.add_column("Cell Config (MinRx/TxMax/Flags)", style="white")
     table.add_column("Status", style="bold")
     table.add_column("Neighbors (GSM/LTE/UMTS)", style="white")
     
     for res in results:
         arfcn = res.get("serving_arfcn", "N/A")
         freq = f"{res.get('frequency_mhz', 0.0):.1f} MHz"
+        carrier_str = f"{arfcn} ({freq})"
+        
         serving = res.get("serving_cell")
         
         if serving:
@@ -66,13 +67,38 @@ def print_sweep_summary(results: list) -> None:
             mcc_mnc = f"{mcc}-{mnc}" if mcc != "N/A" else "N/A"
             lac = str(serving.get("lac") or "N/A")
             cid = str(serving.get("cid") or "N/A")
+            cell_id_str = f"{mcc_mnc} / {lac} / {cid}"
+            
             power = f"{serving.get('avg_signal_power_dbm', 0.0):.1f} dBm" if serving.get('avg_signal_power_dbm') is not None else "N/A"
+            
+            # Access (Barred / Allowed)
+            barred_val = serving.get("cell_barred", "N/A")
+            access_str = "[red]Barred[/red]" if barred_val == "Barred" else "Allowed"
+            
+            # GPRS
+            gprs_val = serving.get("gprs_supported", "N/A")
+            gprs_str = "GPRS" if gprs_val == "Supported" else "No GPRS"
+            
+            features_str = f"{access_str} / {gprs_str}"
+            
+            # Access Params
+            rxlev = serving.get("rxlev_access_min_dbm", "N/A")
+            txmax = serving.get("ms_txpwr_max_cch", "N/A")
+            rxlev_str = f"{rxlev}dBm" if rxlev != "N/A" else "N/A"
+            txmax_str = f"{txmax}dBm" if txmax != "N/A" else "N/A"
+            
+            # Call Flags
+            emerg = "Emerg:Yes" if serving.get("emergency_call") == "Allowed" else "Emerg:No"
+            reest = "Reest:Yes" if serving.get("reestablishment") == "Allowed" else "Reest:No"
+            
+            config_str = f"Min:{rxlev_str} Tx:{txmax_str} | {emerg} {reest}"
+            
             status = "[green]Resolved[/green]"
         else:
-            mcc_mnc = "N/A"
-            lac = "N/A"
-            cid = "N/A"
+            cell_id_str = "N/A"
             power = "N/A"
+            features_str = "N/A"
+            config_str = "N/A"
             status = "[yellow]Unresolved[/yellow]"
             
         # Compile neighbor lists
@@ -84,12 +110,11 @@ def print_sweep_summary(results: list) -> None:
         neighbors_str = ", ".join(all_neighs) if all_neighs else "None"
         
         table.add_row(
-            str(arfcn),
-            freq,
-            mcc_mnc,
-            lac,
-            cid,
+            carrier_str,
+            cell_id_str,
             power,
+            features_str,
+            config_str,
             status,
             neighbors_str
         )
