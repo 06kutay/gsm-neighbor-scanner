@@ -426,11 +426,15 @@ def parse_pcap(
 
     # Reset asyncio event loop for this thread to prevent pyshark conflicts
     import asyncio
+    created_loop = False
     try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+        created_loop = True
     except Exception as e:
-        logger.debug(f"Failed to reset event loop: {e}")
+        logger.debug(f"Failed to setup event loop: {e}")
 
     try:
         # Load PCAP file, filtering at the tshark reader level for gsmtap
@@ -517,6 +521,15 @@ def parse_pcap(
         if cap:
             try:
                 cap.close()
+            except Exception:
+                pass
+            try:
+                del cap
+            except Exception:
+                pass
+        if 'created_loop' in locals() and created_loop:
+            try:
+                loop.close()
             except Exception:
                 pass
 
