@@ -112,15 +112,23 @@ class GrGsmRunner:
 
         logger.info(f"Terminating grgsm_livemon_headless process (PID: {self.process.pid})")
         try:
-            # Send SIGTERM to process group or process
-            self.process.terminate()
+            import signal
+            # Try to terminate the entire process group
+            try:
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+            except Exception:
+                self.process.terminate()
+
             # Wait for it to clean up
             try:
                 self.process.wait(timeout=5)
                 logger.info("grgsm_livemon_headless terminated cleanly.")
             except subprocess.TimeoutExpired:
-                logger.warning("grgsm_livemon_headless did not stop on SIGTERM. Killing...")
-                self.process.kill()
+                logger.warning("grgsm_livemon_headless did not stop on SIGTERM. Killing process group...")
+                try:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                except Exception:
+                    self.process.kill()
                 self.process.wait()
                 logger.info("grgsm_livemon_headless force-killed.")
         except Exception as e:

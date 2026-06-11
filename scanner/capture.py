@@ -159,13 +159,22 @@ class TsharkCapturer:
 
         logger.info(f"Terminating tshark process (PID: {self.process.pid})")
         try:
-            self.process.terminate()
+            import signal
+            # Try to terminate the entire process group (kills tshark and child dumpcap)
+            try:
+                os.killpg(os.getpgid(self.process.pid), signal.SIGTERM)
+            except Exception:
+                self.process.terminate()
+
             try:
                 self.process.wait(timeout=5)
                 logger.info("tshark terminated cleanly.")
             except subprocess.TimeoutExpired:
-                logger.warning("tshark did not stop on SIGTERM. Killing...")
-                self.process.kill()
+                logger.warning("tshark did not stop on SIGTERM. Killing process group...")
+                try:
+                    os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                except Exception:
+                    self.process.kill()
                 self.process.wait()
                 logger.info("tshark force-killed.")
         except Exception as e:

@@ -289,6 +289,7 @@ def main() -> None:
         logger.info("Initializing scan. Starting subprocesses...")
         interrupted = False
         early_terminated = False
+        scan_failed = False
         elapsed_sec = args.duration
 
         try:
@@ -356,8 +357,8 @@ def main() -> None:
             console.print("\n[bold yellow]Scan interrupted by user.[/bold yellow]")
             interrupted = True
         except Exception as e:
-            console.print(f"[bold red]Scanner Error:[/bold red] {e}")
-            interrupted = True
+            console.print(f"[bold red]Scanner Error on ARFCN {current_arfcn}:[/bold red] {e}")
+            scan_failed = True
         finally:
             runner.stop()
             capturer.stop()
@@ -368,6 +369,9 @@ def main() -> None:
 
         if interrupted:
             break
+
+        if scan_failed:
+            continue
 
         # 6. Parse final PCAP findings
         logger.info("Analyzing final captured data...")
